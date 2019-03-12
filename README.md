@@ -1,32 +1,64 @@
 # Client with multiple front ends sample
 
-This project is demonstrating how you can build multiple front ends off of one Shared library.
-There are many interesting use cases that come from doing this but the sample here focuses on building supplementary debugging tools for a production app.
+This repo demonstrates how you can build multiple fronts ends using a shared Swift component with clean boundaries.
+
+The example chosen is a networking client that fetches a list of people from [jsonplaceholder.typicode.com][1].
+The networking client is then reused in 3 separate projects:
+
+- An [iOS application](app) that displays the data in a table view.
+- A [CLI](cli) that pretty prints debug information about the interaction with the client.
+- A [Vapor application](web) that shows the same information as the CLI but in a slightly prettier format.
+
+There are many interesting reuse opportunities but this repo concentrates on building supplementary debugging tools for the "production" iOS application.
 
 ---
 
-The structure of the project is:
+The high level structure of the project is:
 
+![Project Structure](.assets/project-structure.svg)
 
+For details on the [iOS Application](app), the [CLI](cli) or the [Vapor Application](web) follow these links.
+
+Each project roughly follows 3 steps - fetching data, preparing the data and then displaying it:
+
+|         |           iOS           |          CLI         |          Web         |
+|:-------:|:-----------------------:|:--------------------:|:--------------------:|
+|   fetch |     Client.fetch(_:)    |   Client.fetch(_:)   |   Client.fetch(_:)   |
+| prepare |    Store in variable    | Generate pretty JSON | Convert to ViewModel |
+| present | `UITableViewDataSource` |   `print` to stdout  |      Render HTML     |
+
+---
+
+## Shared
+
+The shared component has the following types:
+
+``` swift
+protocol JSONPlaceholderClient
 ```
-                +--------+
-                | shared |
-                +--------+
-                 ^   ^  ^
-                /    |    \
-       ,-------'     |     `--------.
-      /              |               \
-+---------+     +---------+     +---------+
-|   app   |     |   cli   |     |   web   |
-+---------+     +---------+     +---------+
+
+Used to represent a type that can fetch `struct Person` instances from [jsonplaceholder.typicode.com][1].
+
+To create these `Person` instances  there are some helpers defined like this:
+
+``` swift
+struct FailableDecodable<T>
 ```
 
+A type that allows decoding of objects to fail without causing the entire decode to fail.
 
-**Shared**
+The failable decoding process works with
 
-Contains a networking client `JSONPlaceholderClient` that currently only has one real function, which is to fetch a list of people from [jsonplaceholder.typicode.com][1].
+``` swift
+enum Decoded<T>
+```
 
-The networking client is resilient to bad input data - meaning it won't crash if some of the entries are not in the format it expects, the logic will happily just discard items that can't be parsed properly.
+To provide either the parsed data ready for production use or the parsed data, the raw data and any errors encountered by `FailableDecodable`.
+
+---
+
+All of these types work together to ensure that `JSONPlaceholderClient` is resilient to bad input data.
+By resilient I mean it won't crash if some of the entries are not in the format it expects, the logic will happily just discard items that can't be parsed properly.
 
 You can configure the client when you create it by setting `debugEnabled`:
 
@@ -36,12 +68,15 @@ The client will return just the parsed data as native `Person` instances.
 - `debugEnabled: true`  
 The client will return the parsed data as native `Person` instances, the raw input JSON and any errors generated during the parsing of the `Person` instances.
 
-There are a bunch of other types included in this shared library that would not ordinarily be grouped together. 
-In the interest of keeping the sample code as minimal as possible most stuff has been bundled into this one module.
+*NB: JSON placeholder handily returns valid uniform data, which isn't very good when trying to demonstrate how you can improve debugging of bad input.
+For this reason the parsing code deliberately rejects certain people for the sake of making these examples slightly more useful.*
+
+*NB: In a real production system you wouldn't necessarily have all these types in one module.
+In the interest of keeping the sample code as minimal as possible most stuff has been bundled into this one module.*
 
 ---
 
-**App**
+## App
 
 This folder contains a really simple iOS application that uses the networking client and presents the data in a tableview.
 
@@ -50,7 +85,7 @@ This means that the app will be resilient to bad input data and it will not pay 
 
 ---
 
-**CLI**
+## CLI
 
 `cli` is a common abbreviation for **C**ommand **L**ine **I**nterface.
 This folder contains a Swift Package Manager project that creates an executable that will use the client in debug mode.
@@ -61,7 +96,7 @@ It gives a programmatic API that can be used to interact with the same code used
 
 ---
 
-**Web**
+## Web
 
 This folder contains a Vapor application that again uses the networking client in debug mode.
 The benefit of this tool is that you can use the same code that is used in production and get insight into the before/after representations of the parsed data and the errors that are output during parsing.
@@ -84,17 +119,6 @@ The power of this technique is that you are using the production code so you don
 ## How to use this project
 
 This project is provided as an example of how these things can fit together.
-Browse the code and run the projects:
-
-`app` contains an Xcode project for an iOS application. 
-Open the project, choose your device and hit Run.
-
-`cli` contains a Swift Package Manager project.
-`cd` into the folder and run `swift run`.
-
-`web` contains a Vapor project.
-Ensure your have `Vapor` installed.
-`cd` into the folder and run `vapor xcode`
-Open the project and hit Run.
+Each subproject has a README.md that explains it's structure and how to run it.
 
 [1]:https://jsonplaceholder.typicode.com/
