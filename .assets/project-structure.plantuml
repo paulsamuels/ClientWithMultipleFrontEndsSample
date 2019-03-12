@@ -1,0 +1,9 @@
+@startuml
+
+[Shared]
+
+[Shared] <-- [iOS App]
+[Shared] <-- [cli]
+[Shared] <-- [web]
+
+@enduml
